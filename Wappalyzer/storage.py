@@ -50,8 +50,10 @@ def _normalize_results(results: Mapping[str, Any], url: Optional[str]) -> Mappin
         return {url: results}
     if not results:
         return {}
-    first_value = next(iter(results.values()))
-    if isinstance(first_value, Mapping) and DETAIL_KEYS.intersection(first_value.keys()):
+    if all(
+        isinstance(value, Mapping) and DETAIL_KEYS.intersection(value.keys())
+        for value in results.values()
+    ):
         raise ValueError(
             "Cannot determine if results are single-URL or multi-URL format; "
             "provide url parameter for single-URL results"
@@ -139,8 +141,9 @@ def store_analysis_results_to_sqlite(
     scan_id: Optional[str] = None,
     scanned_at: Optional[datetime] = None,
 ) -> str:
-    Path(database_path).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(database_path)
+    resolved_database_path = Path(database_path).expanduser().resolve()
+    resolved_database_path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(resolved_database_path)
     try:
         return store_analysis_results(
             results,
