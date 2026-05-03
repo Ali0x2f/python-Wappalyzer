@@ -94,7 +94,7 @@ class Wappalyzer:
 
         if technologies_file:
             with open(technologies_file, 'r', encoding='utf-8') as fd:
-                obj = json.load(fd)
+                lastest_technologies_file_dict = json.load(fd)
         elif update:
             _technologies_file: pathlib.Path
 
