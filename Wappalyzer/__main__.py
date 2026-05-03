@@ -4,7 +4,7 @@ from .Wappalyzer import analyze, analyze_batch
 
 def get_parser() -> argparse.ArgumentParser:
     """Get the CLI `argparse.ArgumentParser`"""
-    parser = argparse.ArgumentParser(description="python-Wappalyzer CLI", prog="wappalyzer")
+    parser = argparse.ArgumentParser(description="Python-Wappalyzer CLI", prog="wappalyzer")
     parser.add_argument('urls', nargs='*', help='URL(s) to analyze')
     parser.add_argument('--input-file', help='Read URLs from a file, one per line')
     parser.add_argument('--update', action='store_true', help='Use the latest technologies file downloaded from the internet')

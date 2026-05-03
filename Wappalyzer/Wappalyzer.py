@@ -656,7 +656,7 @@ async def analyze_batch_async(urls: Sequence[str],
         async def analyze_one(target_url: str) -> None:
             async with semaphore:
                 webpage = await fetcher.fetch(target_url)
-            results[target_url] = wappalyzer.analyze_with_versions_and_categories(webpage)
+                results[target_url] = wappalyzer.analyze_with_versions_and_categories(webpage)
 
         await asyncio.gather(*(analyze_one(target_url) for target_url in urls))
 
