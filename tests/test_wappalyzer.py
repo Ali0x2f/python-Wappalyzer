@@ -6,6 +6,7 @@ import json
 import os
 import importlib
 
+from datetime import datetime
 from pathlib import Path
 from contextlib import redirect_stdout
 from io import StringIO
@@ -484,6 +485,7 @@ def test_store_analysis_results_to_sqlite(tmp_path):
         ).fetchall()
 
     assert scans[0][0] == scan_id
+    datetime.fromisoformat(scans[0][1])
     assert results == [
         (
             scan_id,

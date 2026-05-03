@@ -11,6 +11,12 @@ from typing import Any, Dict, Iterable, Mapping, Optional, Sequence, Tuple
 DETAIL_KEYS = {"categories", "versions", "confidence", "matched_on"}
 
 
+def _close_cursor(cursor: Any) -> None:
+    close = getattr(cursor, "close", None)
+    if callable(close):
+        close()
+
+
 def _detect_paramstyle(connection: Any) -> str:
     module_name = connection.__class__.__module__.split(".", 1)[0]
     try:
@@ -55,8 +61,8 @@ def _normalize_results(results: Mapping[str, Any], url: Optional[str]) -> Mappin
         for value in results.values()
     ):
         raise ValueError(
-            "Cannot determine if results are single-URL or multi-URL format; "
-            "provide url parameter for single-URL results"
+            "Results appear to be single-URL analysis output; "
+            "provide url parameter when storing single-URL results"
         )
     return results
 
@@ -80,28 +86,31 @@ def _iter_result_rows(
 
 def ensure_database_schema(connection: Any) -> None:
     cursor = connection.cursor()
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS wappalyzer_scans (
-            scan_id TEXT PRIMARY KEY,
-            created_at TEXT NOT NULL
+    try:
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS wappalyzer_scans (
+                scan_id TEXT PRIMARY KEY,
+                created_at TEXT NOT NULL
+            )
+            """
         )
-        """
-    )
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS wappalyzer_results (
-            scan_id TEXT NOT NULL,
-            url TEXT NOT NULL,
-            technology_name TEXT NOT NULL,
-            versions_json TEXT NOT NULL,
-            categories_json TEXT NOT NULL,
-            confidence INTEGER,
-            matched_on_json TEXT NOT NULL,
-            PRIMARY KEY (scan_id, url, technology_name)
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS wappalyzer_results (
+                scan_id TEXT NOT NULL,
+                url TEXT NOT NULL,
+                technology_name TEXT NOT NULL,
+                versions_json TEXT NOT NULL,
+                categories_json TEXT NOT NULL,
+                confidence INTEGER,
+                matched_on_json TEXT NOT NULL,
+                PRIMARY KEY (scan_id, url, technology_name)
+            )
+            """
         )
-        """
-    )
+    finally:
+        _close_cursor(cursor)
 
 
 def store_analysis_results(
@@ -119,18 +128,21 @@ def store_analysis_results(
 
     ensure_database_schema(connection)
     cursor = connection.cursor()
-    _execute_insert(
-        cursor,
-        "wappalyzer_scans",
-        {
-            "scan_id": resolved_scan_id,
-            "created_at": resolved_scanned_at.isoformat(),
-        },
-        resolved_paramstyle,
-    )
-    for row in _iter_result_rows(normalized_results, scan_id=resolved_scan_id):
-        _execute_insert(cursor, "wappalyzer_results", row, resolved_paramstyle)
-    connection.commit()
+    try:
+        _execute_insert(
+            cursor,
+            "wappalyzer_scans",
+            {
+                "scan_id": resolved_scan_id,
+                "created_at": resolved_scanned_at.isoformat(),
+            },
+            resolved_paramstyle,
+        )
+        for row in _iter_result_rows(normalized_results, scan_id=resolved_scan_id):
+            _execute_insert(cursor, "wappalyzer_results", row, resolved_paramstyle)
+        connection.commit()
+    finally:
+        _close_cursor(cursor)
     return resolved_scan_id
 
 
