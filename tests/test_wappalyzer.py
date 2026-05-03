@@ -436,11 +436,12 @@ def test_cli():
     assert "Bootstrap" in r
 
 def test_analyze_payload():
+    technologies_file = Path(__file__).resolve().parents[1] / 'Wappalyzer' / 'data' / 'technologies.json'
     result = analyze_payload({
         'target_url': 'http://wordpress-example.com',
         'html': '<html><head><meta name="generator" content="WordPress 5.4.2"></head></html>',
         'headers': {},
-    }, technologies_file='/home/runner/work/python-Wappalyzer/python-Wappalyzer/Wappalyzer/data/technologies.json')
+    }, technologies_file=str(technologies_file))
 
     assert result['target_url'] == 'http://wordpress-example.com'
     assert {
@@ -449,4 +450,3 @@ def test_analyze_payload():
         'confidence': 100,
         'matched_on': 'meta',
     } in result['technologies']
-

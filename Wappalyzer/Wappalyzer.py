@@ -94,14 +94,14 @@ class Wappalyzer:
 
         if technologies_file:
             with open(technologies_file, 'r', encoding='utf-8') as fd:
-                lastest_technologies_file_dict = json.load(fd)
+                latest_technologies_file_dict = json.load(fd)
         elif update:
             _technologies_file: pathlib.Path
 
-            # Get the lastest file
+            # Get the latest file
             try:
                 
-                lastest_technologies_file_dict = get_technology_data()
+                latest_technologies_file_dict = get_technology_data()
                 _technologies_file = pathlib.Path(cls._find_files(
                     ['HOME', 'APPDATA',],
                     ['.python-Wappalyzer/technologies.json'],
@@ -109,18 +109,18 @@ class Wappalyzer:
                     ).pop())
                 
                 with _technologies_file.open('w', encoding='utf-8') as tfile:
-                    tfile.write(str(lastest_technologies_file_dict))
+                    tfile.write(str(latest_technologies_file_dict))
                     logger.info("python-Wappalyzer technologies.json file updated")
 
             except Exception as err: # Or loads default
                 logger.error("Could not download latest Wappalyzer technologies.json file because of error : '{}'. Using default. ".format(err))
-                lastest_technologies_file_dict = defaultobj
+                latest_technologies_file_dict = defaultobj
             logger.info("Using technologies.json file at {}".format(_technologies_file.as_posix()))
         else:
-            lastest_technologies_file_dict = defaultobj
+            latest_technologies_file_dict = defaultobj
 
         
-        return cls(categories=lastest_technologies_file_dict['categories'], technologies=lastest_technologies_file_dict['technologies'])
+        return cls(categories=latest_technologies_file_dict['categories'], technologies=latest_technologies_file_dict['technologies'])
 
     @staticmethod
     def _find_files(
