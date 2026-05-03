@@ -3,7 +3,6 @@ import asyncio
 from typing import Callable, Dict, Iterable, List, Any, Mapping, Set, Sequence
 import json
 import logging
-import pkg_resources
 import re
 import os
 import pathlib
@@ -91,8 +90,9 @@ class Wappalyzer:
             from `AliasIO/wappalyzer <https://github.com/AliasIO/wappalyzer>`_ repository.  
         
         """
-        default=pkg_resources.resource_string(__name__, "data/technologies.json")
-        defaultobj = json.loads(default)
+        default_path = pathlib.Path(__file__).resolve().parent / "data" / "technologies.json"
+        with default_path.open('r', encoding='utf-8') as default_file:
+            defaultobj = json.load(default_file)
 
         if technologies_file:
             with open(technologies_file, 'r', encoding='utf-8') as fd:
