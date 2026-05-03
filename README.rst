@@ -119,9 +119,9 @@ optional arguments:
   --browser {none,playwright}
                         Rendering engine to use
   --wait-until {load,domcontentloaded,networkidle}
-                         Page load state for browser rendering
+                        Page load state for browser rendering
   --concurrency CONCURRENCY
-                         Maximum number of URLs to analyze concurrently
+                        Maximum number of URLs to analyze concurrently
   --pretty              Pretty-print JSON output
   --sqlite-db SQLITE_DB
                         Store results in a consolidated SQLite database

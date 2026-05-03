@@ -52,7 +52,10 @@ def _normalize_results(results: Mapping[str, Any], url: Optional[str]) -> Mappin
         return {}
     first_value = next(iter(results.values()))
     if isinstance(first_value, Mapping) and DETAIL_KEYS.intersection(first_value.keys()):
-        raise ValueError("url is required when storing single-URL analysis results")
+        raise ValueError(
+            "Cannot determine if results are single-URL or multi-URL format; "
+            "provide url parameter for single-URL results"
+        )
     return results
 
 
