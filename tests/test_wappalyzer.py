@@ -1,6 +1,9 @@
 import pytest
+import sys
+import types
 import json
 import os
+import importlib
 
 from pathlib import Path
 from contextlib import redirect_stdout
@@ -10,7 +13,8 @@ from httpretty import HTTPretty, httprettified
 from aioresponses import aioresponses
 
 from Wappalyzer.fingerprint import Fingerprint
-from Wappalyzer import WebPage, Wappalyzer, analyze_payload
+from Wappalyzer import WebPage, Wappalyzer, analyze_batch_async, analyze_payload
+from Wappalyzer.browser import WebPageFetcher
 from Wappalyzer.__main__ import get_parser, main
 from Wappalyzer.data.update import get_technology_data
 
@@ -450,3 +454,115 @@ def test_analyze_payload():
         'confidence': 100,
         'matched_on': 'meta',
     } in result['technologies']
+
+@pytest.mark.asyncio
+async def test_analyze_batch_async(monkeypatch):
+    technologies_file = Path(__file__).resolve().parents[1] / 'Wappalyzer' / 'data' / 'technologies.json'
+
+    class FakeFetcher:
+        def __init__(self, **kwargs):
+            assert kwargs["browser"] == "playwright"
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def fetch(self, url):
+            html = '<html><head><meta name="generator" content="WordPress 5.4.2"></head></html>'
+            return WebPage(url, html, {})
+
+    monkeypatch.setattr(importlib.import_module("Wappalyzer.Wappalyzer"), "WebPageFetcher", FakeFetcher)
+
+    result = await analyze_batch_async(
+        ["http://example.com", "http://example.org"],
+        technologies_file=str(technologies_file),
+        browser="playwright",
+        concurrency=2,
+    )
+
+    assert set(result.keys()) == {"http://example.com", "http://example.org"}
+    assert "WordPress" in result["http://example.com"]
+    assert "WordPress" in result["http://example.org"]
+
+@pytest.mark.asyncio
+async def test_webpage_fetcher_playwright(monkeypatch):
+    class FakeResponse:
+        async def all_headers(self):
+            return {"Server": "Example"}
+
+    class FakePage:
+        url = "http://rendered.example"
+
+        async def goto(self, url, wait_until, timeout):
+            assert url == "http://example.com"
+            assert wait_until == "networkidle"
+            assert timeout == 5000
+            return FakeResponse()
+
+        async def content(self):
+            return '<html><head><meta name="generator" content="WordPress 5.4.2"></head></html>'
+
+        async def close(self):
+            return None
+
+    class FakeContext:
+        async def new_page(self):
+            return FakePage()
+
+        async def close(self):
+            return None
+
+    class FakeBrowser:
+        async def new_context(self, **kwargs):
+            assert kwargs["ignore_https_errors"] is False
+            assert kwargs["user_agent"] == "UA"
+            return FakeContext()
+
+        async def close(self):
+            return None
+
+    class FakePlaywright:
+        def __init__(self):
+            self.chromium = self
+
+        async def launch(self, headless):
+            assert headless is True
+            return FakeBrowser()
+
+        async def stop(self):
+            return None
+
+    class FakePlaywrightManager:
+        async def start(self):
+            return FakePlaywright()
+
+    fake_package = types.ModuleType("playwright")
+    fake_module = types.ModuleType("playwright.async_api")
+    fake_module.async_playwright = lambda: FakePlaywrightManager()
+    fake_package.async_api = fake_module
+    monkeypatch.setitem(sys.modules, "playwright", fake_package)
+    monkeypatch.setitem(sys.modules, "playwright.async_api", fake_module)
+
+    async with WebPageFetcher(browser="playwright", useragent="UA", timeout=5) as fetcher:
+        webpage = await fetcher.fetch("http://example.com")
+
+    assert webpage.url == "http://rendered.example"
+    assert webpage.headers["Server"] == "Example"
+    assert "WordPress 5.4.2" in webpage.html
+
+def test_cli_multiple_urls(monkeypatch, tmp_path):
+    urls_file = tmp_path / "urls.txt"
+    urls_file.write_text("http://example.com\nhttp://example.org\n", encoding="utf-8")
+
+    def fake_analyze_batch(urls, **kwargs):
+        assert urls == ["http://example.com", "http://example.org"]
+        assert kwargs["browser"] == "playwright"
+        assert kwargs["concurrency"] == 3
+        return {url: {"WordPress": {"categories": ["CMS"], "versions": ["5.4.2"]}} for url in urls}
+
+    monkeypatch.setattr("Wappalyzer.__main__.analyze_batch", fake_analyze_batch)
+
+    result = cli("--input-file", str(urls_file), "--browser", "playwright", "--concurrency", "3")
+    assert set(result.keys()) == {"http://example.com", "http://example.org"}

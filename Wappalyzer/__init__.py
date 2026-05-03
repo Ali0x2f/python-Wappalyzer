@@ -4,9 +4,12 @@ Welcome to ``python-Wappalyzer`` API documentation!
 :see: `Wappalyzer` and `WebPage`.
 """
 
-from .Wappalyzer import Wappalyzer, analyze, analyze_payload
+from .Wappalyzer import Wappalyzer, analyze, analyze_async, analyze_batch, analyze_batch_async, analyze_payload
 from .webpage import WebPage
 __all__ = ["Wappalyzer", 
            "WebPage", 
-           "analyze",
+            "analyze",
+           "analyze_async",
+           "analyze_batch",
+           "analyze_batch_async",
            "analyze_payload"]

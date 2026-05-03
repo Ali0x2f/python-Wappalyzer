@@ -1,5 +1,6 @@
 
-from typing import Callable, Dict, Iterable, List, Any, Mapping, Set
+import asyncio
+from typing import Callable, Dict, Iterable, List, Any, Mapping, Set, Sequence
 import json
 import logging
 import pkg_resources
@@ -12,6 +13,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from Wappalyzer.fingerprint import Fingerprint, Pattern, Technology, Category
+from Wappalyzer.browser import WebPageFetcher
 from Wappalyzer.data.update import get_technology_data
 from Wappalyzer.webpage import WebPage, IWebPage
 
@@ -543,7 +545,10 @@ def analyze(url:str,
             update:bool=False, 
             useragent:str=None,
             timeout:int=10,
-            verify:bool=True) -> Dict[str, Dict[str, Any]]:
+            verify:bool=True,
+            browser:str="none",
+            wait_until:str="networkidle",
+            technologies_file:str=None) -> Dict[str, Dict[str, Any]]:
     """
     Quick utility method to analyze a website with minimal configurable options. 
 
@@ -560,18 +565,101 @@ def analyze(url:str,
         `dict`. Just as `Wappalyzer.analyze_with_versions_and_categories`. 
     :Note: More information might be added to the returned values in the future
     """
-    # Create Wappalyzer
-    wappalyzer=Wappalyzer.latest(update=update)
-    # Create WebPage
-    headers={}
+    return asyncio.run(analyze_async(
+        url,
+        update=update,
+        useragent=useragent,
+        timeout=timeout,
+        verify=verify,
+        browser=browser,
+        wait_until=wait_until,
+        technologies_file=technologies_file,
+    ))
+
+async def analyze_async(url:str,
+                        update:bool=False,
+                        useragent:str=None,
+                        timeout:int=10,
+                        verify:bool=True,
+                        browser:str="none",
+                        wait_until:str="networkidle",
+                        technologies_file:str=None) -> Dict[str, Dict[str, Any]]:
+    """
+    Async equivalent of `analyze`.
+    """
+    results = await analyze_batch_async(
+        [url],
+        update=update,
+        useragent=useragent,
+        timeout=timeout,
+        verify=verify,
+        browser=browser,
+        wait_until=wait_until,
+        technologies_file=technologies_file,
+    )
+    return results[url]
+
+def analyze_batch(urls: Sequence[str],
+                  update: bool = False,
+                  useragent: str = None,
+                  timeout: int = 10,
+                  verify: bool = True,
+                  browser: str = "none",
+                  wait_until: str = "networkidle",
+                  concurrency: int = 5,
+                  technologies_file: str = None) -> Dict[str, Dict[str, Dict[str, Any]]]:
+    """
+    Analyze multiple websites concurrently and return results keyed by URL.
+    """
+    return asyncio.run(analyze_batch_async(
+        urls,
+        update=update,
+        useragent=useragent,
+        timeout=timeout,
+        verify=verify,
+        browser=browser,
+        wait_until=wait_until,
+        concurrency=concurrency,
+        technologies_file=technologies_file,
+    ))
+
+async def analyze_batch_async(urls: Sequence[str],
+                              update: bool = False,
+                              useragent: str = None,
+                              timeout: int = 10,
+                              verify: bool = True,
+                              browser: str = "none",
+                              wait_until: str = "networkidle",
+                              concurrency: int = 5,
+                              technologies_file: str = None) -> Dict[str, Dict[str, Dict[str, Any]]]:
+    """
+    Async batch analyzer with optional headless browser rendering.
+    """
+    if not urls:
+        raise ValueError("urls must not be empty")
+
+    wappalyzer = Wappalyzer.latest(technologies_file=technologies_file, update=update)
+    semaphore = asyncio.Semaphore(max(concurrency, 1))
+    results: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    headers = {}
     if useragent:
-        headers['User-Agent'] = useragent
-    webpage=WebPage.new_from_url(url, 
-        headers=headers, 
-        timeout=timeout, 
-        verify=verify)
-    # Analyze
-    results = wappalyzer.analyze_with_versions_and_categories(webpage)
+        headers["User-Agent"] = useragent
+
+    async with WebPageFetcher(
+        browser=browser,
+        headers=headers,
+        useragent=useragent,
+        timeout=timeout,
+        verify=verify,
+        wait_until=wait_until,
+    ) as fetcher:
+        async def analyze_one(target_url: str) -> None:
+            async with semaphore:
+                webpage = await fetcher.fetch(target_url)
+            results[target_url] = wappalyzer.analyze_with_versions_and_categories(webpage)
+
+        await asyncio.gather(*(analyze_one(target_url) for target_url in urls))
+
     return results
 
 def analyze_payload(payload: Mapping[str, Any],
