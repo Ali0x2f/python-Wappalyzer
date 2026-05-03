@@ -26,12 +26,24 @@ class Tag(BaseTag):
     def inner_html(self) -> str:
         return ''.join(d.toxml() for d in self._elem.childNodes)
 
+    @cached_property
+    def text(self) -> str:
+        return ''.join(
+            node.data
+            for node in self._elem.childNodes
+            if node.nodeType == node.TEXT_NODE
+        )
+
 class ScriptMetaParser(HTMLParser):
 
     def __init__(self):
         super().__init__()
         self.script_src = []
         self.meta_info = {}
+        self.text_content = []
+
+    def handle_data(self, data):
+        self.text_content.append(data)
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
@@ -56,6 +68,7 @@ class WebPage(BaseWebPage):
         script_meta_parser.feed(self.html)
         self.scripts.extend(script_meta_parser.script_src)
         self.meta = script_meta_parser.meta_info
+        self.text = ''.join(script_meta_parser.text_content)
     
     @cached_property
     def _dom(self) -> Optional[minidom.Document]:

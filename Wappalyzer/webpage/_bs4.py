@@ -19,6 +19,10 @@ class Tag(BaseTag):
     def inner_html(self) -> str:
         return self._soup.decode_contents()
 
+    @cached_property
+    def text(self) -> str:
+        return self._soup.get_text()
+
 class WebPage(BaseWebPage):
     """
     Simple representation of a web page, decoupled
@@ -47,10 +51,10 @@ class WebPage(BaseWebPage):
                 meta['content'] for meta in soup.findAll(
                     'meta', attrs=dict(name=True, content=True))
         }
+        self.text = soup.get_text()
     
     def select(self, selector: str) -> Iterator[Tag]:
         """Execute a CSS select and returns results as Tag objects."""
         for item in self._parsed_html.select(selector):
             yield Tag(item.name, item.attrs, item)
-
 

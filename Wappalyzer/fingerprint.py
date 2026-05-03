@@ -25,12 +25,13 @@ class DomSelector:
                  selector: str, 
                  exists: Optional[bool] = None, 
                  text: Optional[List['Pattern']] = None, 
-                 attributes: Optional[Mapping[str, List['Pattern']]] = None,) -> None:
+                 attributes: Optional[Mapping[str, List['Pattern']]] = None,
+                 properties: Optional[Mapping[str, List['Pattern']]] = None,) -> None:
         self.selector: str = selector
         self.exists: bool = bool(exists)
         self.text: Optional[List['Pattern']] = text
         self.attributes: Optional[Mapping[str, List['Pattern']]] = attributes
-        # self.properties Not supported
+        self.properties: Optional[Mapping[str, List['Pattern']]] = properties
 
 class Category:
     def __init__(self, name:str, 
@@ -48,6 +49,7 @@ class Technology:
         self.name = name
         self.confidence: Dict[str, int] = {}
         self.versions: List[str] = []
+        self.matched_on: List[str] = []
     
     @property
     def confidenceTotal(self) -> int: 
@@ -189,6 +191,7 @@ class Fingerprint:
                 # prepare regexes
                 _prep_text_patterns = None
                 _prep_attr_patterns = None
+                _prep_properties_patterns = None
                 _exists = None
                 if clause.get('exists') is not None:
                     _exists = True
@@ -198,5 +201,15 @@ class Fingerprint:
                     _prep_attr_patterns ={}
                     for _key, pattern in clause['attributes'].items(): #type: ignore
                         _prep_attr_patterns[_key] = cls._prepare_pattern(pattern)
-                selectors.append(DomSelector(cssselect, exists=_exists, text=_prep_text_patterns, attributes=_prep_attr_patterns))
+                if clause.get('properties'):
+                    _prep_properties_patterns = {}
+                    for _key, pattern in clause['properties'].items(): #type: ignore
+                        _prep_properties_patterns[_key] = cls._prepare_pattern(pattern)
+                selectors.append(DomSelector(
+                    cssselect,
+                    exists=_exists,
+                    text=_prep_text_patterns,
+                    attributes=_prep_attr_patterns,
+                    properties=_prep_properties_patterns,
+                ))
         return selectors
