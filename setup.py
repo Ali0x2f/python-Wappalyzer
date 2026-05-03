@@ -26,7 +26,7 @@ setup(
                                 'cached_property', ],
     extras_require      =   {
                               # Pin pydoctor version until https://github.com/twisted/pydoctor/issues/513 is fixed
-                              'docs': ["pydoctor==21.2.2", "docutils"], 
+                              'docs': ["pydoctor==21.2.2", "docutils"],
                               'browser': ["playwright>=1.59.0,<2"],
                               'dev': ["tox", "mypy>=0.902", "httpretty", "pytest", "pytest-asyncio",
                                       "flake8", "types-requests", "aioresponses"]
