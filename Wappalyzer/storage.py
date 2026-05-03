@@ -37,7 +37,7 @@ def _format_parameters(
     if paramstyle == "format":
         return ", ".join("%s" for _ in columns), ordered_values
     if paramstyle == "numeric":
-        return ", ".join(f":{index}" for index, _ in enumerate(columns, start=1)), ordered_values
+        return ", ".join(f":{position}" for position, _ in enumerate(columns, start=1)), ordered_values
     if paramstyle == "named":
         return ", ".join(f":{column}" for column in columns), dict(items)
     if paramstyle == "pyformat":
@@ -59,7 +59,7 @@ def _normalize_results(results: Mapping[str, Any], url: Optional[str]) -> Mappin
     if not results:
         return {}
     if all(
-        isinstance(value, Mapping) and DETAIL_KEYS.intersection(value.keys())
+        isinstance(value, Mapping) and bool(DETAIL_KEYS.intersection(value.keys()))
         for value in results.values()
     ):
         raise ValueError(
