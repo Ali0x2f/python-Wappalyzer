@@ -1,6 +1,7 @@
 import argparse
 import json
 from .Wappalyzer import analyze, analyze_batch
+from .storage import store_analysis_results_to_sqlite
 
 def get_parser() -> argparse.ArgumentParser:
     """Get the CLI `argparse.ArgumentParser`"""
@@ -15,6 +16,7 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument('--wait-until', choices=('load', 'domcontentloaded', 'networkidle'), default='networkidle', help='Page load state for browser rendering')
     parser.add_argument('--concurrency', help='Maximum number of URLs to analyze concurrently', type=int, default=5)
     parser.add_argument('--pretty', action='store_true', help='Pretty-print JSON output')
+    parser.add_argument('--sqlite-db', help='Store results in a consolidated SQLite database')
     return parser
 
 def _read_urls(args) -> list:
@@ -47,6 +49,8 @@ def main(args) -> None:
         result = analyze(urls[0], **kwargs)
     else:
         result = analyze_batch(urls, concurrency=args.concurrency, **kwargs)
+    if args.sqlite_db:
+        store_analysis_results_to_sqlite(args.sqlite_db, result, url=urls[0] if len(urls) == 1 else None)
     print(json.dumps(result, indent=2 if args.pretty else None, sort_keys=args.pretty))
 
 def run(argv=None) -> int:
