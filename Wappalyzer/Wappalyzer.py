@@ -187,6 +187,12 @@ class Wappalyzer:
                 if pattern.regex.search(script):
                     self._set_detected_app(webpage.url, tech_fingerprint, 'scripts', pattern, value=script)
                     has_tech = True
+        # analyze script source patterns
+        for pattern in tech_fingerprint.scriptSrc:
+            for script in webpage.scripts:
+                if pattern.regex.search(script):
+                    self._set_detected_app(webpage.url, tech_fingerprint, 'scriptSrc', pattern, value=script)
+                    has_tech = True
         # analyze meta patterns
         for name, patterns in list(tech_fingerprint.meta.items()):
             if name in webpage.meta:
@@ -200,6 +206,11 @@ class Wappalyzer:
             if pattern.regex.search(webpage.html):
                 self._set_detected_app(webpage.url, tech_fingerprint, 'html', pattern, value=webpage.html)
                 has_tech = True
+        # analyze text patterns
+        for pattern in tech_fingerprint.text:
+            if pattern.regex.search(webpage.text):
+                self._set_detected_app(webpage.url, tech_fingerprint, 'text', pattern, value=webpage.text)
+                has_tech = True
         # analyze dom patterns
         # css selector, list of css selectors, or dict from css selector to dict with some of keys:
         #           - "exists": "": only check if the selector matches somthing, equivalent to the list form. 
@@ -212,8 +223,8 @@ class Wappalyzer:
                     has_tech = True
                 if selector.text:
                     for pattern in selector.text:
-                        if pattern.regex.search(item.inner_html):
-                            self._set_detected_app(webpage.url, tech_fingerprint, 'dom', pattern, value=item.inner_html)
+                        if pattern.regex.search(item.text):
+                            self._set_detected_app(webpage.url, tech_fingerprint, 'dom', pattern, value=item.text)
                             has_tech = True
                 if selector.attributes:
                     for attrname, patterns in list(selector.attributes.items()):
@@ -222,6 +233,14 @@ class Wappalyzer:
                             for pattern in patterns:
                                 if pattern.regex.search(_content):
                                     self._set_detected_app(webpage.url, tech_fingerprint, 'dom', pattern, value=_content)
+                                    has_tech = True
+                if selector.properties:
+                    for propname, patterns in list(selector.properties.items()):
+                        _content = item.properties.get(propname)
+                        if _content is not None:
+                            for pattern in patterns:
+                                if pattern.regex.search(str(_content)):
+                                    self._set_detected_app(webpage.url, tech_fingerprint, 'dom', pattern, value=str(_content))
                                     has_tech = True
         return has_tech
 
@@ -246,6 +265,8 @@ class Wappalyzer:
         match_name = app_type + ' ' + key + pattern.string
         
         detected_tech.confidence[match_name] = pattern.confidence
+        if app_type not in detected_tech.matched_on:
+            detected_tech.matched_on.append(app_type)
 
         # Dectect version number
         if pattern.version:
@@ -425,6 +446,66 @@ class Wappalyzer:
 
         return versioned_and_categorised_apps
 
+    def analyze_with_details(self, webpage:IWebPage) -> Dict[str, Dict[str, Any]]:
+        """
+        Return detected technologies with versions, categories, confidence, and match source.
+        """
+        detected_technologies = self.analyze(webpage)
+        detailed_technologies = {}
+
+        for tech_name in detected_technologies:
+            detailed_technologies[tech_name] = {
+                "categories": self.get_categories(tech_name),
+                "versions": self.get_versions(webpage.url, tech_name),
+                "confidence": self.get_confidence(webpage.url, tech_name) or 0,
+                "matched_on": self.get_matched_on(webpage.url, tech_name),
+            }
+
+        return detailed_technologies
+
+    def get_matched_on(self, url:str, app_name:str) -> List[str]:
+        """
+        Returns the match sources for an app name.
+
+        :param url: URL of the webpage
+        :param app_name: App name
+        """
+        try:
+            return self.detected_technologies[url][app_name].matched_on
+        except KeyError:
+            return []
+
+    def analyze_payload(self, payload: Mapping[str, Any]) -> Dict[str, Any]:
+        """
+        Analyze a website payload and return structured JSON-compatible output.
+        """
+        target_url = payload.get("target_url") or payload.get("url")
+        if not target_url:
+            raise ValueError("payload must include target_url or url")
+
+        html = payload.get("html", "")
+        headers = payload.get("headers", {})
+        webpage = WebPage(target_url, html, headers)
+        detected = self.analyze_with_details(webpage)
+
+        technologies = []
+        for tech_name, details in detected.items():
+            versions = details["versions"]
+            matched_on = details["matched_on"]
+            technologies.append({
+                "name": tech_name,
+                "version": versions[0] if versions else None,
+                "confidence": min(details["confidence"], 100),
+                "matched_on": matched_on[0] if matched_on else None,
+            })
+
+        technologies.sort(key=lambda technology: technology["name"])
+
+        return {
+            "target_url": target_url,
+            "technologies": technologies,
+        }
+
     def _sort_app_versions(self, version_a: str, version_b: str) -> int:
         return len(version_a) - len(version_b)
 
@@ -492,3 +573,12 @@ def analyze(url:str,
     # Analyze
     results = wappalyzer.analyze_with_versions_and_categories(webpage)
     return results
+
+def analyze_payload(payload: Mapping[str, Any],
+                    technologies_file: str = None,
+                    update: bool = False) -> Dict[str, Any]:
+    """
+    Analyze a website payload and return structured JSON-compatible output.
+    """
+    wappalyzer = Wappalyzer.latest(technologies_file=technologies_file, update=update)
+    return wappalyzer.analyze_payload(payload)

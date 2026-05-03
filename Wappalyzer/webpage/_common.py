@@ -27,18 +27,32 @@ class ITag(Protocol):
     name: str
     attributes: Mapping[str, str]
     inner_html: str
+    text: str
+    properties: Mapping[str, str]
 
 class BaseTag(ITag, abc.ABC):
     """
     Subclasses must implement inner_html().
     """
-    def __init__(self, name:str, attributes:Mapping[str, str]) -> None:
+    def __init__(self,
+                 name:str,
+                 attributes:Mapping[str, str],
+                 properties:Any = None) -> None:
         _raise_not_dict(attributes, "attributes")
+        if properties is None:
+            properties = {}
+        _raise_not_dict(properties, "properties")
         self.name = name
         self.attributes = attributes
+        self.properties = properties
     @property
     def inner_html(self) -> str: # type: ignore
         """Returns the inner HTML of an element as a UTF-8 encoded bytestring"""
+        raise NotImplementedError()
+
+    @property
+    def text(self) -> str: # type: ignore
+        """Returns the element text content as a UTF-8 encoded string"""
         raise NotImplementedError()
 
 class IWebPage(Protocol):
@@ -52,6 +66,7 @@ class IWebPage(Protocol):
     headers: Mapping[str, str]
     scripts: List[str]
     meta: Mapping[str, str]
+    text: str
     def select(self, selector:str) -> Iterable[ITag]: 
         raise NotImplementedError()
 
@@ -78,6 +93,7 @@ class BaseWebPage(IWebPage):
         self.headers = CaseInsensitiveDict(headers)
         self.scripts: List[str] = []
         self.meta: Mapping[str, str] = {}
+        self.text = ""
         self._parse_html()
 
     def _parse_html(self):

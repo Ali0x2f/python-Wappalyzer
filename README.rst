@@ -64,6 +64,17 @@ The Wappalyzer object exposes more methods that returns metatada for the detecte
  'WordPress': {'categories': ['CMS', 'Blogs'], 'versions': ['5.4.2']},
  'Yoast SEO': {'categories': ['SEO'], 'versions': ['14.6.1']}}
 
+You can also analyze a provided website payload and get structured JSON output.
+
+>>> from Wappalyzer import analyze_payload
+>>> analyze_payload({
+...     'target_url': 'http://wordpress-example.com',
+...     'html': '<html><head><meta name="generator" content="WordPress 5.4.2"></head></html>',
+...     'headers': {},
+... })
+{'target_url': 'http://wordpress-example.com',
+ 'technologies': [{'name': 'WordPress', 'version': '5.4.2', 'confidence': 100, 'matched_on': 'meta'}]}
+
 Read the `API Reference <https://chorsley.github.io/python-Wappalyzer/Wappalyzer.html>`_ for more documentation.
 
 CLI

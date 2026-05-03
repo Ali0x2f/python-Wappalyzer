@@ -10,9 +10,32 @@ from httpretty import HTTPretty, httprettified
 from aioresponses import aioresponses
 
 from Wappalyzer.fingerprint import Fingerprint
-from Wappalyzer import WebPage, Wappalyzer
+from Wappalyzer import WebPage, Wappalyzer, analyze_payload
 from Wappalyzer.__main__ import get_parser, main
 from Wappalyzer.data.update import get_technology_data
+
+
+class FakeTag:
+    def __init__(self, properties=None):
+        self.name = "div"
+        self.attributes = {}
+        self.inner_html = ""
+        self.text = ""
+        self.properties = properties or {}
+
+
+class FakeWebPage:
+    def __init__(self, url, tags):
+        self.url = url
+        self.html = ""
+        self.headers = {}
+        self.scripts = []
+        self.meta = {}
+        self.text = ""
+        self._tags = tags
+
+    def select(self, selector):
+        return iter(self._tags.get(selector, []))
 @pytest.fixture
 def async_mock():
     with aioresponses() as m:
@@ -340,12 +363,42 @@ def test_analyze_dom_dict_attributes():
     assert analyzer.analyze(webpageB) == {"b"}
 
 def test_analyze_scriptSrc():
-    ...
-    #TODO
+    webpage = WebPage(
+        'http://example.com',
+        '<html><head><script src="/static/app.js"></script></head></html>',
+        {},
+    )
+    analyzer = Wappalyzer(categories={}, technologies={
+        'a': {'scriptSrc': 'app\\.js'},
+    })
+
+    assert analyzer.analyze(webpage) == {"a"}
 
 def test_analyze_text():
-    ...
-    #TODO
+    webpage = WebPage('http://example.com', '<html><body>Hello text detection</body></html>', {})
+    analyzer = Wappalyzer(categories={}, technologies={
+        'a': {'text': 'hello\\ text\\ detection'},
+    })
+
+    assert analyzer.analyze(webpage) == {"a"}
+
+def test_analyze_dom_dict_properties():
+    webpage = FakeWebPage('http://example.com', {
+        'body > div': [FakeTag({'_reactRootContainer': ''})],
+    })
+    analyzer = Wappalyzer(categories={}, technologies={
+        'React': {
+            'dom': {
+                'body > div': {
+                    'properties': {
+                        '_reactRootContainer': '',
+                    }
+                }
+            }
+        }
+    })
+
+    assert analyzer.analyze(webpage) == {"React"}
 
 def test_fingerprint():
     tech_fingerprint = Fingerprint(name='WordPress', **{
@@ -382,4 +435,18 @@ def test_cli():
     assert len(r) > 2
     assert "Bootstrap" in r
 
+def test_analyze_payload():
+    result = analyze_payload({
+        'target_url': 'http://wordpress-example.com',
+        'html': '<html><head><meta name="generator" content="WordPress 5.4.2"></head></html>',
+        'headers': {},
+    }, technologies_file='/home/runner/work/python-Wappalyzer/python-Wappalyzer/Wappalyzer/data/technologies.json')
+
+    assert result['target_url'] == 'http://wordpress-example.com'
+    assert {
+        'name': 'WordPress',
+        'version': '5.4.2',
+        'confidence': 100,
+        'matched_on': 'meta',
+    } in result['technologies']
 
