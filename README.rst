@@ -22,6 +22,13 @@ Install
 
     $ pip install python-Wappalyzer
 
+This also installs a ``wappalyzer`` command line entrypoint.
+
+To enable headless browser rendering with Playwright::
+
+    $ pip install "python-Wappalyzer[browser]"
+    $ python -m playwright install chromium
+
 Require Python3.6 or later. 
 
 Usage
@@ -84,18 +91,40 @@ Additionnaly, there is now a CLI interface. It prints the analyzer results (with
 
 Call it with::
 
-    python -m Wappalyzer
+    wappalyzer https://example.com
+
+Or with the module entrypoint::
+
+    python -m Wappalyzer https://example.com
 
 positional arguments:
-  url                   URL to analyze
+  urls                  URL(s) to analyze
 
 optional arguments:
   -h, --help            show this help message and exit
+  --input-file INPUT_FILE
+                        Read URLs from a file, one per line
   --update              Use the latest technologies file downloaded from the internet
   --user-agent USERAGENT
                         Request user agent
   --timeout TIMEOUT     Request timeout
   --no-verify           Skip SSL cert verify
+  --browser {none,playwright}
+                        Rendering engine to use
+  --wait-until {load,domcontentloaded,networkidle}
+                        Page load state for browser rendering
+  --concurrency CONCURRENCY
+                        Maximum number of URLs to analyze concurrently
+  --pretty              Pretty-print JSON output
+
+You can scale across multiple websites by passing several URLs or an input file::
+
+    wappalyzer https://example.com https://example.org --concurrency 10
+    wappalyzer --input-file urls.txt --concurrency 10
+
+To render JavaScript-heavy pages before analysis, use Playwright::
+
+    wappalyzer https://example.com --browser playwright --wait-until networkidle
 
 Cannot use lxml in your environment?
 ------------------------------------
@@ -117,6 +146,9 @@ in development
 * Add support for the "dom" key in technologies JSON.
 * Fix case sensitivity of the WebPage headers.
 * Provide a fallback WebPage class that works without ``lxml``. 
+* Add installable ``wappalyzer`` console script.
+* Add concurrent multi-site analysis helpers and CLI support.
+* Add optional Playwright-based headless browser rendering.
 
 python-Wappalyzer 0.4.0 (unreleased)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

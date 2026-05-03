@@ -7,7 +7,7 @@ setup(
     description         =   "Python implementation of the Wappalyzer web application "
                             "detection utility",
     long_description    =   (pathlib.Path(__file__).parent / "README.rst").read_text(),
-    long_description_content_type   =   "text/markdown",
+    long_description_content_type   =   "text/x-rst",
     author              =   "Chris Horsley (chorsley) and other contributors (See git history)",
     url                 =   "https://github.com/chorsley/python-Wappalyzer",
     classifiers         =   [
@@ -25,10 +25,16 @@ setup(
                                 'aiohttp',
                                 'cached_property', ],
     extras_require      =   {
-                             # Pin pydoctor version until https://github.com/twisted/pydoctor/issues/513 is fixed
-                             'docs': ["pydoctor==21.2.2", "docutils"], 
-                             'dev': ["tox", "mypy>=0.902", "httpretty", "pytest", "pytest-asyncio", 
-                                     "types-requests", "types-pkg_resources", "aioresponses"]
+                              # Pin pydoctor version until https://github.com/twisted/pydoctor/issues/513 is fixed
+                              'docs': ["pydoctor==21.2.2", "docutils"],
+                              'browser': ["playwright>=1.59.0,<2"],
+                              'dev': ["tox", "mypy>=0.902", "httpretty", "pytest", "pytest-asyncio",
+                                      "flake8", "types-requests", "aioresponses"]
                             },
     python_requires     =   '>=3.6',
+    entry_points        =   {
+                                'console_scripts': [
+                                    'wappalyzer=Wappalyzer.__main__:run',
+                                ],
+                            },
 )
