@@ -1,4 +1,5 @@
 import pytest
+import sqlite3
 import sys
 import types
 import json
@@ -17,6 +18,7 @@ from Wappalyzer import WebPage, Wappalyzer, analyze_batch_async, analyze_payload
 from Wappalyzer.browser import WebPageFetcher
 from Wappalyzer.__main__ import get_parser, main
 from Wappalyzer.data.update import get_technology_data
+from Wappalyzer.storage import store_analysis_results, store_analysis_results_to_sqlite
 
 
 class FakeTag:
@@ -455,6 +457,73 @@ def test_analyze_payload():
         'matched_on': 'meta',
     } in result['technologies']
 
+def test_store_analysis_results_to_sqlite(tmp_path):
+    database_path = tmp_path / "results.sqlite"
+    scan_id = store_analysis_results_to_sqlite(
+        str(database_path),
+        {
+            "WordPress": {
+                "categories": ["CMS"],
+                "versions": ["5.4.2"],
+                "confidence": 100,
+                "matched_on": ["meta"],
+            }
+        },
+        url="http://example.com",
+    )
+
+    with sqlite3.connect(database_path) as connection:
+        scans = connection.execute(
+            "SELECT scan_id, created_at FROM wappalyzer_scans"
+        ).fetchall()
+        results = connection.execute(
+            """
+            SELECT scan_id, url, technology_name, versions_json, categories_json, confidence, matched_on_json
+            FROM wappalyzer_results
+            """
+        ).fetchall()
+
+    assert scans[0][0] == scan_id
+    assert results == [
+        (
+            scan_id,
+            "http://example.com",
+            "WordPress",
+            '["5.4.2"]',
+            '["CMS"]',
+            100,
+            '["meta"]',
+        )
+    ]
+
+def test_store_analysis_results_named_paramstyle():
+    with sqlite3.connect(":memory:") as connection:
+        scan_id = store_analysis_results(
+            {
+                "http://example.com": {
+                    "WordPress": {
+                        "categories": ["CMS"],
+                        "versions": ["5.4.2"],
+                    }
+                }
+            },
+            connection,
+            paramstyle="named",
+        )
+        results = connection.execute(
+            "SELECT scan_id, url, technology_name, versions_json, categories_json FROM wappalyzer_results"
+        ).fetchall()
+
+    assert results == [
+        (
+            scan_id,
+            "http://example.com",
+            "WordPress",
+            '["5.4.2"]',
+            '["CMS"]',
+        )
+    ]
+
 @pytest.mark.asyncio
 async def test_analyze_batch_async(monkeypatch):
     technologies_file = Path(__file__).resolve().parents[1] / 'Wappalyzer' / 'data' / 'technologies.json'
@@ -566,3 +635,26 @@ def test_cli_multiple_urls(monkeypatch, tmp_path):
 
     result = cli("--input-file", str(urls_file), "--browser", "playwright", "--concurrency", "3")
     assert set(result.keys()) == {"http://example.com", "http://example.org"}
+
+def test_cli_sqlite_output(monkeypatch, tmp_path):
+    database_path = tmp_path / "results.sqlite"
+
+    def fake_analyze(url, **kwargs):
+        assert url == "http://example.com"
+        return {
+            "WordPress": {
+                "categories": ["CMS"],
+                "versions": ["5.4.2"],
+            }
+        }
+
+    monkeypatch.setattr("Wappalyzer.__main__.analyze", fake_analyze)
+
+    result = cli("http://example.com", "--sqlite-db", str(database_path))
+
+    assert "WordPress" in result
+    with sqlite3.connect(database_path) as connection:
+        rows = connection.execute(
+            "SELECT url, technology_name, versions_json, categories_json FROM wappalyzer_results"
+        ).fetchall()
+    assert rows == [("http://example.com", "WordPress", '["5.4.2"]', '["CMS"]')]

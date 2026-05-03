@@ -82,6 +82,13 @@ You can also analyze a provided website payload and get structured JSON output.
 {'target_url': 'http://wordpress-example.com',
  'technologies': [{'name': 'WordPress', 'version': '5.4.2', 'confidence': 100, 'matched_on': 'meta'}]}
 
+To persist results in a consolidated database, use the storage helpers with SQLite or any
+DB-API compatible connection::
+
+>>> from Wappalyzer import analyze, store_analysis_results_to_sqlite
+>>> result = analyze('http://wordpress-example.com')
+>>> scan_id = store_analysis_results_to_sqlite('wappalyzer.sqlite', result, url='http://wordpress-example.com')
+
 Read the `API Reference <https://chorsley.github.io/python-Wappalyzer/Wappalyzer.html>`_ for more documentation.
 
 CLI
@@ -112,15 +119,18 @@ optional arguments:
   --browser {none,playwright}
                         Rendering engine to use
   --wait-until {load,domcontentloaded,networkidle}
-                        Page load state for browser rendering
+                         Page load state for browser rendering
   --concurrency CONCURRENCY
-                        Maximum number of URLs to analyze concurrently
+                         Maximum number of URLs to analyze concurrently
   --pretty              Pretty-print JSON output
+  --sqlite-db SQLITE_DB
+                        Store results in a consolidated SQLite database
 
 You can scale across multiple websites by passing several URLs or an input file::
 
     wappalyzer https://example.com https://example.org --concurrency 10
     wappalyzer --input-file urls.txt --concurrency 10
+    wappalyzer --input-file urls.txt --sqlite-db ./wappalyzer.sqlite
 
 To render JavaScript-heavy pages before analysis, use Playwright::
 
