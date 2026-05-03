@@ -69,10 +69,10 @@ def _iter_result_rows(
                 "scan_id": scan_id,
                 "url": target_url,
                 "technology_name": technology_name,
-                "versions_json": json.dumps(details.get("versions", []), sort_keys=True),
-                "categories_json": json.dumps(details.get("categories", []), sort_keys=True),
+                "versions_json": json.dumps(details.get("versions", [])),
+                "categories_json": json.dumps(details.get("categories", [])),
                 "confidence": details.get("confidence"),
-                "matched_on_json": json.dumps(details.get("matched_on", []), sort_keys=True),
+                "matched_on_json": json.dumps(details.get("matched_on", [])),
             }
 
 
