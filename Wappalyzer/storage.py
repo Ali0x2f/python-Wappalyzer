@@ -27,26 +27,28 @@ def _detect_paramstyle(connection: Any) -> str:
 
 
 def _format_parameters(
-    columns: Sequence[str],
-    values: Mapping[str, Any],
+    items: Sequence[Tuple[str, Any]],
     paramstyle: str,
 ) -> Tuple[str, Any]:
+    columns = tuple(column for column, _ in items)
+    ordered_values = tuple(value for _, value in items)
     if paramstyle == "qmark":
-        return ", ".join("?" for _ in columns), tuple(values[column] for column in columns)
+        return ", ".join("?" for _ in columns), ordered_values
     if paramstyle == "format":
-        return ", ".join("%s" for _ in columns), tuple(values[column] for column in columns)
+        return ", ".join("%s" for _ in columns), ordered_values
     if paramstyle == "numeric":
-        return ", ".join(f":{index}" for index, _ in enumerate(columns, start=1)), tuple(values[column] for column in columns)
+        return ", ".join(f":{index}" for index, _ in enumerate(columns, start=1)), ordered_values
     if paramstyle == "named":
-        return ", ".join(f":{column}" for column in columns), {column: values[column] for column in columns}
+        return ", ".join(f":{column}" for column in columns), dict(items)
     if paramstyle == "pyformat":
-        return ", ".join(f"%({column})s" for column in columns), {column: values[column] for column in columns}
+        return ", ".join(f"%({column})s" for column in columns), dict(items)
     raise ValueError(f"Unsupported DB-API paramstyle: {paramstyle}")
 
 
 def _execute_insert(cursor: Any, table_name: str, values: Mapping[str, Any], paramstyle: str) -> None:
-    columns = tuple(values.keys())
-    placeholders, parameters = _format_parameters(columns, values, paramstyle)
+    items = tuple(values.items())
+    columns = tuple(column for column, _ in items)
+    placeholders, parameters = _format_parameters(items, paramstyle)
     sql = f"INSERT INTO {table_name} ({', '.join(columns)}) VALUES ({placeholders})"
     cursor.execute(sql, parameters)
 

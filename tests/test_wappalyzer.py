@@ -485,7 +485,8 @@ def test_store_analysis_results_to_sqlite(tmp_path):
         ).fetchall()
 
     assert scans[0][0] == scan_id
-    datetime.fromisoformat(scans[0][1])
+    created_at = datetime.fromisoformat(scans[0][1])
+    assert created_at.tzinfo is not None
     assert results == [
         (
             scan_id,
